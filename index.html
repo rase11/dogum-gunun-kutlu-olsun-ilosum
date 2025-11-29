@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Prens ve Prenses</title>
+    <title>Prens ve Prenses - Test Modu</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style>
-        body { margin: 0; background-color: #000; overflow: hidden; }
+        body { margin: 0; background-color: #222; overflow: hidden; }
         #game-container { width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
     </style>
 </head>
@@ -23,6 +23,7 @@
             width: 800,
             height: 450
         },
+        backgroundColor: '#87CEEB', // Arka plan: Açık Mavi (Kodla yaptık)
         physics: {
             default: 'arcade',
             arcade: {
@@ -42,56 +43,47 @@
     let player;
     let princess;
     let cursors;
-    let finalImage;
     let touchControls = { left: false, right: false, jump: false };
     let isGameFinished = false;
-    let loadingText;
 
     function preload() {
-        // Yükleniyor yazısı (Ekranın çalıştığını anlamak için)
-        loadingText = this.add.text(400, 225, 'Yükleniyor...', { fontSize: '32px', fill: '#fff' }).setOrigin(0.5);
-
-        this.load.image('sky', 'https://labs.phaser.io/assets/skies/space3.png');
-        this.load.image('ground', 'https://labs.phaser.io/assets/sprites/platform.png');
-        
-        // SENİN DOSYALARIN
-        this.load.image('prens', 'prens.png');
-        this.load.image('prenses', 'prenses.png');
-        this.load.image('finalScene', 'final.png');
+        // HİÇBİR RESİM YÜKLEMİYORUZ!
+        // Sadece kod çalışıyor mu diye bakacağız.
     }
 
     function create() {
-        // Yükleme yazısını kaldır
-        loadingText.destroy();
-
-        // Arka Plan
-        this.add.image(400, 225, 'sky').setDisplaySize(800, 450); 
-
-        // Platformlar
+        // --- ZEMİN (Yeşil Dikdörtgenler) ---
         const platforms = this.physics.add.staticGroup();
-        // Zemin
-        for (let i = 0; i < 10; i++) {
-            platforms.create(i * 400, 430, 'ground').setScale(1).refreshBody().setTint(0x2E8B57);
-        }
         
+        // Yere kodla "dikdörtgen" çiziyoruz (Resim değil)
+        let ground = this.add.rectangle(400, 440, 800, 40, 0x2E8B57); // Yeşil renk
+        this.physics.add.existing(ground, true); // Fiziğe ekle (sabit)
+        platforms.add(ground);
+
         // Engeller
-        platforms.create(600, 300, 'ground').setScale(0.5).refreshBody().setTint(0x2E8B57);
-        platforms.create(1100, 250, 'ground').setScale(0.5).refreshBody().setTint(0x2E8B57);
-        platforms.create(1600, 320, 'ground').setScale(0.5).refreshBody().setTint(0x2E8B57);
+        let p1 = this.add.rectangle(600, 300, 200, 30, 0x2E8B57);
+        this.physics.add.existing(p1, true);
+        platforms.add(p1);
 
-        // --- PRENS AYARLARI (GÜNCELLENDİ) ---
-        player = this.physics.add.sprite(100, 300, 'prens');
-        // setScale yerine setDisplaySize kullanıyoruz. 
-        // Resim ne kadar büyük olursa olsun 50x80 piksel yapacak.
-        player.setDisplaySize(50, 80); 
-        player.setBounce(0.1);
-        player.setCollideWorldBounds(false);
+        let p2 = this.add.rectangle(50, 200, 150, 30, 0x2E8B57);
+        this.physics.add.existing(p2, true);
+        platforms.add(p2);
 
-        // --- PRENSES AYARLARI (GÜNCELLENDİ) ---
-        princess = this.physics.add.staticSprite(2200, 310, 'prenses');
-        // Prensesi de sabit boyuta zorluyoruz.
-        princess.setDisplaySize(50, 80);
-        princess.setFlipX(true); 
+        let p3 = this.add.rectangle(1100, 250, 200, 30, 0x2E8B57);
+        this.physics.add.existing(p3, true);
+        platforms.add(p3);
+
+
+        // --- PRENS (Mavi Kutu) ---
+        // Resim yerine "rectangle" (dikdörtgen) kullanıyoruz
+        player = this.add.rectangle(100, 300, 40, 60, 0x0000FF); // Mavi Prens
+        this.physics.add.existing(player); // Fiziğe ekle
+        player.body.setBounce(0.1);
+        player.body.setCollideWorldBounds(false);
+
+        // --- PRENSES (Pembe Kutu) ---
+        princess = this.add.rectangle(2200, 310, 40, 60, 0xFF69B4); // Pembe Prenses
+        this.physics.add.existing(princess, true); // Sabit durur
 
         // Çarpışmalar
         this.physics.add.collider(player, platforms);
@@ -104,31 +96,23 @@
         // Kontroller
         cursors = this.input.keyboard.createCursorKeys();
         setupTouchControls(this);
-
-        // Final Resmi Hazırlığı
-        finalImage = this.add.image(400, 225, 'finalScene');
-        finalImage.setScrollFactor(0);
-        finalImage.setVisible(false);
-        finalImage.setDepth(100);
     }
 
     function update() {
         if (isGameFinished) return;
 
-        // Hareket
+        // Hareket Mantığı
         if (cursors.left.isDown || touchControls.left) {
-            player.setVelocityX(-200);
-            player.setFlipX(true); 
+            player.body.setVelocityX(-200);
         } else if (cursors.right.isDown || touchControls.right) {
-            player.setVelocityX(200);
-            player.setFlipX(false); 
+            player.body.setVelocityX(200);
         } else {
-            player.setVelocityX(0);
+            player.body.setVelocityX(0);
         }
 
         // Zıplama
         if ((cursors.up.isDown || touchControls.jump) && player.body.touching.down) {
-            player.setVelocityY(-450);
+            player.body.setVelocityY(-450);
         }
 
         // Düşerse
@@ -137,20 +121,16 @@
         }
     }
 
-    function reachPrincess(player, princess) {
+    function reachPrincess() {
         isGameFinished = true;
         this.physics.pause();
-        player.setVisible(false);
-        princess.setVisible(false);
-
-        // Final resmini göster ve ekrana sığdır
-        finalImage.setVisible(true);
         
-        // Ekrana tam sığdırma hesabı
-        let scaleX = this.cameras.main.width / finalImage.width;
-        let scaleY = this.cameras.main.height / finalImage.height;
-        let scale = Math.max(scaleX, scaleY);
-        finalImage.setScale(scale);
+        // Ekrana yazı yaz
+        let text = this.add.text(player.x, 200, 'MUTLU SON! ❤️', { 
+            fontSize: '40px', 
+            fill: '#FFF', 
+            backgroundColor: '#000' 
+        }).setOrigin(0.5);
     }
 
     function setupTouchControls(scene) {
@@ -176,5 +156,3 @@
 
 </body>
 </html>
-
-
