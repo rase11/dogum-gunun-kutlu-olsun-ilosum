@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Prens ve Prenses</title>
+    <title>Sana Özel Bir Oyun</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style>
         body { 
             margin: 0; 
-            background-color: #000; /* Kenarlar Siyah */
+            background-color: #000; 
             overflow: hidden; 
+            font-family: Arial, sans-serif;
         }
         #game-container { 
             width: 100vw; 
@@ -34,8 +35,7 @@
             width: 800,
             height: 450
         },
-        // İŞTE BURASI ARKA PLANI MAVİ YAPIYOR (Uzay resmi yerine)
-        backgroundColor: '#87CEEB', 
+        backgroundColor: '#87CEEB',
         physics: {
             default: 'arcade',
             arcade: {
@@ -58,48 +58,82 @@
     let finalImage;
     let touchControls = { left: false, right: false, jump: false };
     let isGameFinished = false;
+    let score = 0;
+    let scoreText;
+    let hearts;
 
     function preload() {
-        // UZAY RESMİNİ SİLDİK!
-
-        // Zemin resmi (İnternetten)
         this.load.image('ground', 'https://labs.phaser.io/assets/sprites/platform.png');
         
-        // SENİN DOSYALARIN (İsimler küçük harf olmalı)
+        // SENİN RESİMLERİN
         this.load.image('prens', 'prens.png');
         this.load.image('prenses', 'prenses.png');
         this.load.image('finalScene', 'final.png');
     }
 
     function create() {
-        // UZAY RESMİ EKLEME KODUNU DA SİLDİK!
-
-        // 1. Platformlar
+        // --- 1. SAHNE KURULUMU ---
+        
+        // Platform Grubu
         const platforms = this.physics.add.staticGroup();
-        // Zemin
-        for (let i = 0; i < 10; i++) {
+
+        // Zemin (Daha uzun yaptık ki düşmesin)
+        for (let i = 0; i < 15; i++) {
             platforms.create(i * 400, 430, 'ground').setScale(1).refreshBody().setTint(0x2E8B57);
         }
-        
-        // Engeller
-        platforms.create(600, 300, 'ground').setScale(0.5).refreshBody().setTint(0x2E8B57);
-        platforms.create(1100, 250, 'ground').setScale(0.5).refreshBody().setTint(0x2E8B57);
-        platforms.create(1600, 320, 'ground').setScale(0.5).refreshBody().setTint(0x2E8B57);
 
-        // 2. PRENS (Boyutu 50x80'e zorluyoruz)
+        // --- 2. PARKUN TASARIMI (Platformlar) ---
+        // Engelleri biraz daha stratejik koyduk
+        platforms.create(500, 320, 'ground').setScale(0.5).refreshBody().setTint(0x2E8B57); // İlk zıplayış
+        platforms.create(800, 220, 'ground').setScale(0.5).refreshBody().setTint(0x2E8B57); // Yüksek platform
+        platforms.create(1200, 300, 'ground').setScale(0.5).refreshBody().setTint(0x2E8B57);
+        platforms.create(1500, 380, 'ground').setScale(0.3).refreshBody().setTint(0x2E8B57); // Alçak taş
+        platforms.create(1800, 250, 'ground').setScale(0.5).refreshBody().setTint(0x2E8B57); // Son engel
+
+        // --- 3. KARAKTERLER ---
+        
+        // PRENS
         player = this.physics.add.sprite(100, 300, 'prens');
-        player.setDisplaySize(50, 80); 
+        player.setDisplaySize(50, 80);
         player.setBounce(0.1);
         player.setCollideWorldBounds(false);
 
-        // 3. PRENSES
+        // PRENSES (Konum Güncellendi: Y=300)
         princess = this.physics.add.staticSprite(2200, 300, 'prenses');
         princess.setDisplaySize(50, 80);
-        princess.setFlipX(true); 
+        princess.setFlipX(true);
 
+        // --- 4. KALPLER (YENİ ÖZELLİK) ---
+        hearts = this.physics.add.group({
+            key: 'ground', // Geçici şekil kullanıp boyayacağız
+            repeat: 5, // 5 tane kalp olsun
+            setXY: { x: 400, y: 0, stepX: 300 } // Her 300 pikselde bir koy
+        });
+
+        hearts.children.iterate(function (child) {
+            child.setTint(0xFF0000); // Kırmızı yap
+            child.setDisplaySize(30, 30); // Küçült
+            child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8)); // Zıplasınlar
+            // Kalp gibi görünmesi için hafif kod hilesi (Burada basit kare kullandık ama kırmızı olduğu için kalp niyetine geçer)
+        });
+        
         // Çarpışmalar
         this.physics.add.collider(player, platforms);
+        this.physics.add.collider(hearts, platforms);
+        
+        // Etkileşimler
         this.physics.add.overlap(player, princess, reachPrincess, null, this);
+        this.physics.add.overlap(player, hearts, collectHeart, null, this);
+
+        // --- 5. ARAYÜZ (UI) ---
+        scoreText = this.add.text(16, 16, 'Toplanan Sevgi: 0', { 
+            fontSize: '24px', 
+            fill: '#000',
+            fontStyle: 'bold',
+            backgroundColor: '#ffffff80',
+            padding: { x: 10, y: 5 }
+        });
+        scoreText.setScrollFactor(0); // Kamera ile hareket etmesin, ekrana yapışsın
 
         // Kamera
         this.cameras.main.setBounds(0, 0, 2400, 450);
@@ -122,23 +156,31 @@
         // Hareket
         if (cursors.left.isDown || touchControls.left) {
             player.setVelocityX(-200);
-            player.setFlipX(true); 
+            player.setFlipX(true);
         } else if (cursors.right.isDown || touchControls.right) {
             player.setVelocityX(200);
-            player.setFlipX(false); 
+            player.setFlipX(false);
         } else {
             player.setVelocityX(0);
         }
 
         // Zıplama
         if ((cursors.up.isDown || touchControls.jump) && player.body.touching.down) {
-            player.setVelocityY(-450);
+            player.setVelocityY(-480); // Biraz daha yükseğe zıplasın
         }
 
-        // Düşerse
+        // Düşerse başa sar
         if (player.y > 500) {
             this.scene.restart();
+            score = 0; // Skoru sıfırla
         }
+    }
+
+    // Kalp Toplama Fonksiyonu
+    function collectHeart (player, heart) {
+        heart.disableBody(true, true); // Kalbi yok et
+        score += 10; // Skoru artır
+        scoreText.setText('Toplanan Sevgi: ' + score); // Yazıyı güncelle
     }
 
     function reachPrincess(player, princess) {
@@ -146,15 +188,25 @@
         this.physics.pause();
         player.setVisible(false);
         princess.setVisible(false);
+        
+        // Arayüzü gizle
+        scoreText.setVisible(false);
 
         // Final resmini göster
         finalImage.setVisible(true);
         
-        // Ekrana sığdır
         let scaleX = this.cameras.main.width / finalImage.width;
         let scaleY = this.cameras.main.height / finalImage.height;
         let scale = Math.max(scaleX, scaleY);
         finalImage.setScale(scale);
+        
+        // Final Yazısı
+        let endText = this.add.text(400, 50, 'MUTLU SON ❤️', {
+            fontSize: '40px',
+            fill: '#fff',
+            stroke: '#000',
+            strokeThickness: 6
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
     }
 
     function setupTouchControls(scene) {
@@ -180,4 +232,3 @@
 
 </body>
 </html>
-
