@@ -45,26 +45,31 @@
     let finalImage;
     let touchControls = { left: false, right: false, jump: false };
     let isGameFinished = false;
+    let loadingText;
 
     function preload() {
-        // Arka plan ve zemin (Phaser sunucusundan)
+        // Yükleniyor yazısı (Ekranın çalıştığını anlamak için)
+        loadingText = this.add.text(400, 225, 'Yükleniyor...', { fontSize: '32px', fill: '#fff' }).setOrigin(0.5);
+
         this.load.image('sky', 'https://labs.phaser.io/assets/skies/space3.png');
         this.load.image('ground', 'https://labs.phaser.io/assets/sprites/platform.png');
         
-        // SENİN YÜKLEYECEĞİN DOSYALAR
-        // Lütfen 'prens.png' ve 'prenses.png' olarak ayrı ayrı yükle
+        // SENİN DOSYALARIN
         this.load.image('prens', 'prens.png');
         this.load.image('prenses', 'prenses.png');
         this.load.image('finalScene', 'final.png');
     }
 
     function create() {
-        // Gökyüzü
-        this.add.image(400, 225, 'sky').setScale(4); 
+        // Yükleme yazısını kaldır
+        loadingText.destroy();
+
+        // Arka Plan
+        this.add.image(400, 225, 'sky').setDisplaySize(800, 450); 
 
         // Platformlar
         const platforms = this.physics.add.staticGroup();
-        // Zemin (Boydan boya)
+        // Zemin
         for (let i = 0; i < 10; i++) {
             platforms.create(i * 400, 430, 'ground').setScale(1).refreshBody().setTint(0x2E8B57);
         }
@@ -74,16 +79,19 @@
         platforms.create(1100, 250, 'ground').setScale(0.5).refreshBody().setTint(0x2E8B57);
         platforms.create(1600, 320, 'ground').setScale(0.5).refreshBody().setTint(0x2E8B57);
 
-        // PRENS (Boyutunu ayarlamak için setScale değerini değiştirebilirsin)
+        // --- PRENS AYARLARI (GÜNCELLENDİ) ---
         player = this.physics.add.sprite(100, 300, 'prens');
-        player.setScale(0.3); // Küçültmek için (0.3 = %30 boyut)
+        // setScale yerine setDisplaySize kullanıyoruz. 
+        // Resim ne kadar büyük olursa olsun 50x80 piksel yapacak.
+        player.setDisplaySize(50, 80); 
         player.setBounce(0.1);
         player.setCollideWorldBounds(false);
 
-        // PRENSES
+        // --- PRENSES AYARLARI (GÜNCELLENDİ) ---
         princess = this.physics.add.staticSprite(2200, 310, 'prenses');
-        princess.setScale(0.3); // Prenses boyutu
-        princess.setFlipX(true); // Prense doğru dönsün
+        // Prensesi de sabit boyuta zorluyoruz.
+        princess.setDisplaySize(50, 80);
+        princess.setFlipX(true); 
 
         // Çarpışmalar
         this.physics.add.collider(player, platforms);
@@ -97,11 +105,11 @@
         cursors = this.input.keyboard.createCursorKeys();
         setupTouchControls(this);
 
-        // FİNAL SAHNESİ (Gizli başlar)
+        // Final Resmi Hazırlığı
         finalImage = this.add.image(400, 225, 'finalScene');
-        finalImage.setScrollFactor(0); // Ekrana yapışık kalsın
-        finalImage.setDepth(100); // En üste
+        finalImage.setScrollFactor(0);
         finalImage.setVisible(false);
+        finalImage.setDepth(100);
     }
 
     function update() {
@@ -110,10 +118,10 @@
         // Hareket
         if (cursors.left.isDown || touchControls.left) {
             player.setVelocityX(-200);
-            player.setFlipX(true); // Sola dön
+            player.setFlipX(true); 
         } else if (cursors.right.isDown || touchControls.right) {
             player.setVelocityX(200);
-            player.setFlipX(false); // Sağa dön
+            player.setFlipX(false); 
         } else {
             player.setVelocityX(0);
         }
@@ -123,7 +131,7 @@
             player.setVelocityY(-450);
         }
 
-        // Düşerse yeniden başlat
+        // Düşerse
         if (player.y > 500) {
             this.scene.restart();
         }
@@ -132,19 +140,13 @@
     function reachPrincess(player, princess) {
         isGameFinished = true;
         this.physics.pause();
-        
-        // Karakterleri gizle
         player.setVisible(false);
         princess.setVisible(false);
 
         // Final resmini göster ve ekrana sığdır
         finalImage.setVisible(true);
         
-        // Resmi ekranın ortasına zorla hizala
-        const cx = this.cameras.main.worldView.x + this.cameras.main.width / 2;
-        const cy = this.cameras.main.worldView.y + this.cameras.main.height / 2;
-        
-        // Resmi ölçekle (Ekrana tam sığsın)
+        // Ekrana tam sığdırma hesabı
         let scaleX = this.cameras.main.width / finalImage.width;
         let scaleY = this.cameras.main.height / finalImage.height;
         let scale = Math.max(scaleX, scaleY);
