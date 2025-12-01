@@ -1,45 +1,34 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sana Özel Bir Oyun v10.0 (Final Temiz)</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Sana Özel Bir Oyun — İyileştirilmiş</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style>
-        body { 
-            margin: 0; 
-            background-color: #000; 
-            overflow: hidden; 
-            font-family: 'Arial Black', sans-serif;
-            touch-action: none;
+        html,body { margin:0; padding:0; height:100%; background:#000; }
+        body {
+            font-family: "Arial Black", Arial, sans-serif;
+            touch-action: none; /* mobile sürükleme engelle */
+            -webkit-user-select:none;
+            -ms-user-select:none;
+            user-select:none;
         }
-        #game-container { 
-            width: 100vw; 
-            height: 100vh; 
-        }
-
+        #game-container { width:100vw; height:100vh; overflow:hidden; }
         #orientation-warning {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: #222;
-            color: #fff;
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            text-align: center;
+            position: fixed; inset:0; display:none;
+            background:#222; color:#fff; z-index:9999;
+            display:flex; flex-direction:column; justify-content:center; align-items:center;
+            text-align:center;
         }
-        #orientation-warning h1 { font-size: 50px; margin-bottom: 20px; }
-        
-        @media screen and (orientation: portrait) {
-            #orientation-warning { display: flex; }
-            #game-container { display: none; }
+        #orientation-warning h1{ font-size:56px; margin:0 0 12px 0; }
+        @media screen and (orientation:portrait) {
+            #orientation-warning { display:flex; }
+            #game-container { display:none; }
         }
     </style>
 </head>
 <body>
-
 <div id="orientation-warning">
     <h1>📱↔️</h1>
     <h2>Lütfen Telefonu Yan Çevir</h2>
@@ -49,6 +38,10 @@
 <div id="game-container"></div>
 
 <script>
+(() => {
+    const MAP_WIDTH = 4000;
+    const GROUND_HEIGHT = 64;
+
     const config = {
         type: Phaser.AUTO,
         parent: 'game-container',
@@ -59,311 +52,370 @@
             autoCenter: Phaser.Scale.CENTER_BOTH
         },
         backgroundColor: '#87CEEB',
-        antialias: true,
         physics: {
             default: 'arcade',
             arcade: {
-                gravity: { y: 1500 },
-                // --- DEBUG KAPALI (Artık çizgiler yok) ---
-                debug: false 
+                gravity: { y: 1300 },
+                debug: false
             }
         },
-        scene: {
-            preload: preload,
-            create: create,
-            update: update
-        }
+        scene: { preload, create, update }
     };
 
     const game = new Phaser.Game(config);
 
-    let player;
-    let princess;
-    let cursors;
-    let finalImage;
-    let finalImageContainer;
-    let isGameFinished = false;
-    let score = 0;
-    let scoreText;
-    let hearts;
-    let music;
-    let movingPlatforms;
-    let emitter;
-    let background;
-    
+    let player, princess, cursors, scoreText, hearts, music;
+    let emitter, bgFar, bgMid, bgFront;
     let btnLeft, btnRight, btnJump;
-    let isLeftDown = false;
-    let isRightDown = false;
-    let isJumpDown = false;
-
-    let mapWidth = 4000; 
-    const GROUND_HEIGHT = 64; 
+    let isLeft = false, isRight = false, isJump = false;
+    let platforms;
 
     function preload() {
+        // audio + user assets (local)
         this.load.audio('theme', 'muzik.mp3');
-        
-        // --- İLK BAŞTAKİ GÜZEL GÖRSELLERİ GERİ GETİRDİK ---
-        // Bulutlu Gökyüzü
-        this.load.image('skyBackground', 'https://labs.phaser.io/assets/skies/clouds.png'); 
-        // Standart Yeşil Zemin Platformu
+
+        // phaser sample assets (clouds/platform/particles)
+        this.load.image('sky', 'https://labs.phaser.io/assets/skies/sky4.png'); // geniş gökyüzü
+        this.load.image('clouds', 'https://labs.phaser.io/assets/skies/clouds.png');
+        this.load.image('clouds2', 'https://labs.phaser.io/assets/skies/space3.png');
+
         this.load.image('ground', 'https://labs.phaser.io/assets/sprites/platform.png');
-        
         this.load.image('sparkle', 'https://labs.phaser.io/assets/particles/blue.png');
         this.load.image('heart', 'https://labs.phaser.io/assets/sprites/heart.png');
-        
-        // SENİN RESİMLERİN
+
+        // user's sprites (local files)
         this.load.image('prens', 'prens.png');
         this.load.image('prenses', 'prenses.png');
         this.load.image('finalScene', 'final.png');
     }
 
     function create() {
+        // FIRST TOUCH -> fullscreen + music start
         this.input.once('pointerdown', () => {
-            if (!this.scale.isFullscreen && this.scale.startFullscreen) {
-                this.scale.startFullscreen();
+            if (this.scale.startFullscreen) this.scale.startFullscreen();
+            if (!music || !music.isPlaying) music = this.sound.add('theme', { loop:true, volume:0.5 });
+            if (music && !music.isPlaying) music.play();
+        });
+
+        // BACKGROUNDS - parallax katmanları
+        bgFar = this.add.tileSprite(0, 0, this.scale.width, this.scale.height, 'sky').setOrigin(0).setScrollFactor(0);
+        bgMid = this.add.tileSprite(0, 0, this.scale.width, this.scale.height * 0.6, 'clouds2').setOrigin(0).setScrollFactor(0);
+        bgFront = this.add.tileSprite(0, this.scale.height * 0.05, this.scale.width, this.scale.height * 0.25, 'clouds').setOrigin(0).setScrollFactor(0);
+
+        // world bounds / camera
+        this.cameras.main.setBounds(0, 0, MAP_WIDTH, this.scale.height);
+        this.physics.world.setBounds(0, 0, MAP_WIDTH, this.scale.height);
+
+        // STATIC PLATFORMS GROUP
+        platforms = this.physics.add.staticGroup();
+
+        // compute bottomY based on viewport
+        const bottomY = this.scale.height - GROUND_HEIGHT/2;
+
+        // create floors with sensible gaps and widths (düzgün hizalama)
+        createFloor(this, platforms, 0, 900);
+        createFloor(this, platforms, 1000, 1600);
+        createFloor(this, platforms, 1700, 2300);
+        createFloor(this, platforms, 2500, MAP_WIDTH);
+
+        // small blocks
+        createBlock(platforms, 450, bottomY - 90);
+        createBlock(platforms, 650, bottomY - 190);
+        createBlock(platforms, 1200, bottomY - 120);
+        createBlock(platforms, 2100, bottomY - 110);
+
+        // moving platforms (physics group)
+        const moving = this.physics.add.group({ allowGravity:false, immovable:true });
+        const mp1 = moving.create(900, bottomY - 120, 'ground').setDisplaySize(150, 32).refreshBody();
+        setMovingData(mp1, 850, 950, 80);
+        const mp2 = moving.create(2600, bottomY - 90, 'ground').setDisplaySize(140, 32).refreshBody();
+        setMovingData(mp2, 2450, 2750, 120);
+
+        // PARTICLES (emitter) - follow player and more stable
+        const particles = this.add.particles('sparkle');
+        emitter = particles.createEmitter({
+            speed: { min: -40, max: 40 },
+            scale: { start: 0.18, end: 0 },
+            lifespan: 350,
+            blendMode: 'ADD',
+            quantity: 1,
+            on: false
+        });
+
+        // PLAYER - place on first floor center
+        const firstFloor = platforms.getChildren()[0];
+        const startX = Phaser.Math.Clamp(firstFloor.x - (firstFloor.displayWidth/2) + 120, 80, MAP_WIDTH - 200);
+        const startY = firstFloor.y - (GROUND_HEIGHT/2);
+
+        player = this.physics.add.sprite(startX, startY, 'prens');
+        player.setOrigin(0.5, 1);
+        player.setDisplaySize(64, 96); // görünüş için uygun ölçek
+        // stabilize body size & offset to match sprite
+        player.body.setSize(34, 82);
+        player.body.setOffset((player.width - 34)/2, player.height - 82);
+        player.setCollideWorldBounds(true);
+        player.setBounce(0);
+        player.setMaxVelocity(400, 1200);
+
+        emitter.startFollow(player);
+
+        // PRINCESS
+        princess = this.physics.add.staticSprite(MAP_WIDTH - 220, startY, 'prenses');
+        princess.setOrigin(0.5, 1);
+        princess.setDisplaySize(64, 96);
+        princess.refreshBody();
+
+        // HEARTS
+        hearts = this.physics.add.group();
+        for (let i=0;i<14;i++){
+            let x = Phaser.Math.Between(300, MAP_WIDTH - 400);
+            let y = Phaser.Math.Between(100, bottomY - 200);
+            const h = hearts.create(x,y,'heart');
+            h.setDisplaySize(32,32);
+            h.setBounceY(Phaser.Math.FloatBetween(0.4,0.8));
+            h.body.setCircle(14);
+        }
+
+        // COLLIDERS & OVERLAPS
+        this.physics.add.collider(player, platforms);
+        this.physics.add.collider(player, moving, moveWithPlatform);
+        this.physics.add.collider(hearts, platforms);
+        this.physics.add.collider(hearts, moving);
+        this.physics.add.overlap(player, hearts, collectHeart, null, this);
+        this.physics.add.overlap(player, princess, reachPrincess, null, this);
+
+        // UI - score
+        scoreText = this.add.text(20, 20, 'Toplanan Sevgi: 0', {
+            fontSize: '26px', fill:'#fff', stroke:'#000', strokeThickness:4
+        }).setScrollFactor(0).setDepth(10);
+
+        // camera follow
+        this.cameras.main.startFollow(player, true, 0.08, 0.08);
+        this.cameras.main.setLerp(0.08,0.08);
+
+        // input
+        cursors = this.input.keyboard.createCursorKeys();
+        this.input.addPointer(2);
+
+        // modern mobile buttons
+        createMobileButtons(this);
+
+        // final image container (hidden)
+        const finalContainer = this.add.container(0,0).setDepth(999).setScrollFactor(0).setVisible(false);
+        const finalImg = this.add.image(0,0,'finalScene').setOrigin(0.5).setDepth(1000);
+        finalContainer.add(finalImg);
+        this.registry.set('finalContainer', finalContainer);
+        this.registry.set('finalImg', finalImg);
+
+        // on resize
+        this.scale.on('resize', (gameSize) => {
+            bgFar.setSize(gameSize.width, gameSize.height);
+            bgMid.setSize(gameSize.width, gameSize.height * 0.6);
+            bgFront.setSize(gameSize.width, gameSize.height * 0.25);
+            // reposition UI buttons
+            positionButtons(this);
+        });
+
+    } // create end
+
+    function update(time,delta) {
+        // parallax move (based on camera)
+        const camX = this.cameras.main.scrollX;
+        bgFar.tilePositionX = camX * 0.12;
+        bgMid.tilePositionX = camX * 0.25;
+        bgFront.tilePositionX = camX * 0.45;
+
+        // moving platforms update (children of world)
+        this.physics.world.bodies.entries.forEach(b => {
+            if (b.gameObject && b.gameObject.minMoveX !== undefined) {
+                const go = b.gameObject;
+                if (go.moveRight) {
+                    go.body.setVelocityX(go.moveSpeed);
+                    if (go.x > go.maxMoveX) go.moveRight=false;
+                } else {
+                    go.body.setVelocityX(-go.moveSpeed);
+                    if (go.x < go.minMoveX) go.moveRight=true;
+                }
             }
         });
 
-        music = this.sound.add('theme', { loop: true, volume: 0.5 });
-        this.input.once('pointerdown', () => { if (!music.isPlaying) music.play(); });
+        // controls
+        const onGround = player.body.blocked.down || player.body.touching.down;
+        let moving = false;
 
-        // --- ARKA PLAN (Bulutlu) ---
-        background = this.add.tileSprite(0, 0, this.scale.width, this.scale.height, 'skyBackground');
-        background.setOrigin(0, 0);
-        background.setScrollFactor(0);
-        
-        let scaleX = this.scale.width / background.width;
-        let scaleY = this.scale.height / background.height;
-        let scale = Math.max(scaleX, scaleY);
-        background.setScale(scale);
-
-        const platforms = this.physics.add.staticGroup();
-        
-        // --- ZEMİNLER (Çimen Yeşili) ---
-        createFloor(this, platforms, 0, 800);
-        createFloor(this, platforms, 1000, 1500);
-        createFloor(this, platforms, 1700, 2400);
-        createFloor(this, platforms, 2600, 4000);
-
-        const bottomY = this.scale.height - GROUND_HEIGHT;
-
-        // --- ENGELLER ---
-        createBlock(platforms, 450, bottomY - 60);
-        createBlock(platforms, 650, bottomY - 160);
-
-        movingPlatforms = this.physics.add.group({allowGravity: false, immovable: true});
-        
-        let mp1 = movingPlatforms.create(900, bottomY - 100, 'ground').setDisplaySize(150, 32).setTint(0x8B4513);
-        mp1.setMoveData(850, 950, 100);
-
-        createBlock(platforms, 1800, bottomY - 80);
-        createBlock(platforms, 2000, bottomY - 200);
-        createBlock(platforms, 2200, bottomY - 80);
-
-        let mp2 = movingPlatforms.create(2500, bottomY - 50, 'ground').setDisplaySize(120, 32).setTint(0x8B4513);
-        mp2.setMoveData(2450, 2550, 150);
-
-        emitter = this.add.particles('sparkle').createEmitter({
-            speed: { min: -50, max: 50 }, angle: { min: 0, max: 360 }, scale: { start: 0.2, end: 0 },
-            blendMode: 'ADD', on: false, lifespan: 300, gravityY: -100
-        });
-
-        // --- PRENS ---
-        player = this.physics.add.sprite(100, bottomY, 'prens');
-        player.setOrigin(0.5, 1); 
-        player.setDisplaySize(60, 90); 
-
-        // Mükemmel Hitbox Ayarı
-        player.body.setSize(40, 75); 
-        player.body.setOffset(10, 15); 
-        
-        player.setBounce(0.0); 
-        player.setCollideWorldBounds(false); 
-        emitter.startFollow(player);
-
-        // --- PRENSES ---
-        princess = this.physics.add.staticSprite(mapWidth - 300, bottomY, 'prenses');
-        princess.setOrigin(0.5, 1);
-        princess.setDisplaySize(60, 90);
-        princess.setFlipX(true);
-        princess.body.setSize(40, 80);
-        princess.body.setOffset(10, 10);
-        princess.refreshBody(); 
-
-        // --- KALPLER ---
-        hearts = this.physics.add.group();
-        for (let i = 0; i < 20; i++) {
-            let x = Phaser.Math.Between(300, mapWidth - 400);
-            let y = Phaser.Math.Between(100, bottomY - 250);
-            let heart = hearts.create(x, y, 'heart');
-            heart.setDisplaySize(35, 35); 
-            heart.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
-            heart.body.setCircle(15); 
+        if (cursors.left.isDown || isLeft) {
+            player.setVelocityX(-260);
+            player.setFlipX(true);
+            moving = true;
+        } else if (cursors.right.isDown || isRight) {
+            player.setVelocityX(260);
+            player.setFlipX(false);
+            moving = true;
+        } else {
+            // small damping for snappy stop
+            player.setVelocityX(player.body.velocity.x * 0.88);
+            if (Math.abs(player.body.velocity.x) < 6) player.setVelocityX(0);
         }
 
-        this.physics.add.collider(player, platforms);
-        this.physics.add.collider(player, movingPlatforms, moveWithPlatform, null, this);
-        this.physics.add.collider(hearts, platforms);
-        this.physics.add.collider(hearts, movingPlatforms);
-        this.physics.add.overlap(player, princess, reachPrincess, null, this);
-        this.physics.add.overlap(player, hearts, collectHeart, null, this);
+        if ((Phaser.Input.Keyboard.JustDown(cursors.up) || isJump) && onGround) {
+            player.setVelocityY(-620);
+            emitter.on = false;
+            // short jump press behavior: jump then reset isJump so holding doesn't trigger repeatedly
+            isJump = false;
+        }
 
-        scoreText = this.add.text(20, 20, 'Toplanan Sevgi: 0', { 
-            fontSize: '28px', fill: '#FFF', fontStyle: 'bold', stroke: '#000', strokeThickness: 4
-        }).setScrollFactor(0);
+        // emitter when running on ground
+        emitter.on = moving && onGround;
 
-        this.cameras.main.setBounds(0, 0, mapWidth, this.scale.height);
-        this.cameras.main.startFollow(player, true, 0.08, 0.08);
-
-        createVirtualButtons(this);
-        cursors = this.input.keyboard.createCursorKeys();
-
-        finalImageContainer = this.add.container(0, 0).setScrollFactor(0).setVisible(false).setDepth(200);
-        finalImage = this.add.image(0, 0, 'finalScene');
-        finalImageContainer.add(finalImage);
-
-        this.input.addPointer(2);
-        this.scale.on('resize', resize, this);
+        // if fell below screen -> restart
+        if (player.y > this.scale.height + 200) {
+            this.scene.restart();
+            // score reset handled by collectHeart logic; reset registry if needed
+            this.registry.set('score', 0);
+        }
     }
 
-    // --- ZEMİN OLUŞTURMA (Çimen Yeşili) ---
+    /* ---------- Helper functions ---------- */
+
     function createFloor(scene, group, startX, endX) {
-        let width = endX - startX;
-        let centerX = startX + (width / 2);
-        let y = scene.scale.height; 
-        
-        let floor = group.create(centerX, y, 'ground');
-        floor.setOrigin(0.5, 1); 
+        const width = endX - startX;
+        const centerX = startX + width/2;
+        const y = scene.scale.height - (GROUND_HEIGHT/2);
+
+        const floor = group.create(centerX, y, 'ground');
+        floor.setOrigin(0.5, 0.5);
         floor.setDisplaySize(width, GROUND_HEIGHT);
-        // Canlı Çimen Yeşili Rengi
-        floor.setTint(0x2ecc71); 
+        floor.setTint(0x1e8b3a); // daha canlı zemin
         floor.refreshBody();
     }
 
-    // --- ENGEL OLUŞTURMA (Toprak Rengi) ---
     function createBlock(group, x, y) {
-        let block = group.create(x, y, 'ground');
-        block.setDisplaySize(100, 32);
-        block.setTint(0x8B4513); 
-        block.refreshBody();
+        const b = group.create(x, y, 'ground');
+        b.setOrigin(0.5, 0.5);
+        b.setDisplaySize(120, 32);
+        b.setTint(0x3b2f1b);
+        b.refreshBody();
     }
 
-    function resize (gameSize) {
-        const width = gameSize.width;
-        const height = gameSize.height;
-        this.cameras.main.setViewport(0, 0, width, height);
-        if (background) background.setSize(width, height);
+    function setMovingData(go, minX, maxX, speed) {
+        go.minMoveX = minX;
+        go.maxMoveX = maxX;
+        go.moveSpeed = speed;
+        go.moveRight = true;
+        go.body.setCollideWorldBounds(true);
+    }
 
-        if(btnLeft) {
-            btnLeft.setPosition(40, height - 130);
-            btnRight.setPosition(180, height - 130);
-            btnJump.setPosition(width - 150, height - 130);
+    function moveWithPlatform(playerObj, platform) {
+        // add platform horizontal velocity to player when standing on top
+        if (playerObj.body.touching.down && platform.body.touching.up) {
+            playerObj.x += platform.body.velocity.x * (1/60); // gentle transfer to avoid jitter
         }
     }
 
-    function update() {
-        if (isGameFinished) return;
-        background.tilePositionX = this.cameras.main.scrollX * 0.3;
-
-        movingPlatforms.children.iterate(function (platform) {
-            if (platform.moveRight) {
-                platform.body.setVelocityX(platform.moveSpeed);
-                if (platform.x > platform.maxMoveX) platform.moveRight = false;
-            } else {
-                platform.body.setVelocityX(-platform.moveSpeed);
-                if (platform.x < platform.minMoveX) platform.moveRight = true;
-            }
-        });
-
-        let isMoving = false;
-        if (cursors.left.isDown || isLeftDown) {
-            player.setVelocityX(-300);
-            player.setFlipX(true);
-            isMoving = true;
-        } else if (cursors.right.isDown || isRightDown) {
-            player.setVelocityX(300);
-            player.setFlipX(false);
-            isMoving = true;
-        } else {
-            player.setVelocityX(0);
-        }
-
-        if (isMoving && player.body.touching.down) emitter.on = true;
-        else emitter.on = false;
-
-        if ((cursors.up.isDown || isJumpDown) && player.body.touching.down) {
-            player.setVelocityY(-750);
-            emitter.on = false;
-        }
-
-        if (player.y > this.scale.height + 200) {
-            this.scene.restart();
-            score = 0;
-        }
+    function collectHeart(playerObj, heart) {
+        heart.disableBody(true,true);
+        let s = this.registry.get('score') || 0;
+        s += 10;
+        this.registry.set('score', s);
+        scoreText.setText('Toplanan Sevgi: ' + s);
     }
 
-    function moveWithPlatform(player, platform) {
-        if (player.body.touching.down && platform.body.touching.up) {
-            player.body.velocity.x += platform.body.velocity.x;
-        }
-    }
-
-    Phaser.GameObjects.Sprite.prototype.setMoveData = function(min, max, speed) {
-        this.minMoveX = min;
-        this.maxMoveX = max;
-        this.moveSpeed = speed;
-        this.moveRight = true;
-    };
-
-    function collectHeart (player, heart) {
-        heart.disableBody(true, true);
-        score += 10;
-        scoreText.setText('Toplanan Sevgi: ' + score);
-    }
-
-    function reachPrincess(player, princess) {
-        isGameFinished = true;
-        this.physics.pause();
-        player.setVisible(false);
-        princess.setVisible(false);
+    function reachPrincess(playerObj, princessObj) {
+        // show final screen
+        const scene = playerObj.scene;
+        scene.physics.pause();
+        playerObj.setVisible(false);
+        princessObj.setVisible(false);
         scoreText.setVisible(false);
-        if(btnLeft) btnLeft.setVisible(false);
-        if(btnRight) btnRight.setVisible(false);
-        if(btnJump) btnJump.setVisible(false);
-        emitter.setVisible(false);
+        hideButtons();
+        emitter.on = false;
 
-        finalImageContainer.setVisible(true);
-        finalImageContainer.setPosition(this.scale.width / 2, this.scale.height / 2);
-        const w = this.scale.width;
-        const h = this.scale.height;
-        finalImage.setDisplaySize(w, h);
+        const finalContainer = scene.registry.get('finalContainer');
+        const finalImg = scene.registry.get('finalImg');
 
-        this.add.text(this.scale.width / 2, 50, 'MUTLU SON ❤️', {
-            fontSize: '50px', fill: '#fff', stroke: '#000', strokeThickness: 8, fontFamily: 'Arial Black'
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(201);
+        finalContainer.setVisible(true);
+        finalContainer.x = scene.scale.width/2;
+        finalContainer.y = scene.scale.height/2;
+        finalImg.setDisplaySize(scene.scale.width, scene.scale.height);
+        finalImg.setPosition(scene.scale.width/2, scene.scale.height/2);
+        scene.add.text(scene.scale.width/2, 60, 'MUTLU SON ❤️', {
+            fontSize: '50px', fill:'#fff', stroke:'#000', strokeThickness:8, fontFamily: 'Arial Black'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(1001);
     }
 
-    function createVirtualButtons(scene) {
-        const h = scene.scale.height;
-        const w = scene.scale.width;
-        const style = { fontSize: '90px', fill: '#FFF', stroke: '#000', strokeThickness: 4 };
+    /* ---------- Mobile buttons (graphics -> texture) ---------- */
+    function createMobileButtons(scene) {
+        // create rounded rectangle textures (only once)
+        const w = 130, h = 110, radius = 20;
+        const g = scene.make.graphics({x:0,y:0,add:false});
+        g.fillStyle(0x000000, 0.35);
+        g.fillRoundedRect(0,0,w,h,radius);
+        g.lineStyle(4, 0xffffff, 0.08);
+        g.strokeRoundedRect(0,0,w,h,radius);
+        g.generateTexture('btnBg', w, h);
+        g.clear();
 
-        btnLeft = scene.add.text(40, h - 130, '⬅️', style).setScrollFactor(0).setInteractive();
-        btnLeft.on('pointerdown', () => { isLeftDown = true; });
-        btnLeft.on('pointerup', () => { isLeftDown = false; });
-        btnLeft.on('pointerout', () => { isLeftDown = false; });
+        // left
+        btnLeft = scene.add.image(60, scene.scale.height - 110, 'btnBg').setScrollFactor(0).setInteractive();
+        const leftArrow = scene.add.text(0,0,'⬅️',{ fontSize:'56px' }).setOrigin(0.5).setDepth(5);
+        const leftContainer = scene.add.container(btnLeft.x, btnLeft.y, [btnLeft,leftArrow]).setScrollFactor(0).setDepth(20);
+        leftContainer.setSize(w,h);
+        leftContainer.setInteractive(new Phaser.Geom.Rectangle(-w/2,-h/2,w,h), Phaser.Geom.Rectangle.Contains);
+        leftContainer.on('pointerdown', () => isLeft = true);
+        leftContainer.on('pointerup', () => isLeft = false);
+        leftContainer.on('pointerout', () => isLeft = false);
 
-        btnRight = scene.add.text(180, h - 130, '➡️', style).setScrollFactor(0).setInteractive();
-        btnRight.on('pointerdown', () => { isRightDown = true; });
-        btnRight.on('pointerup', () => { isRightDown = false; });
-        btnRight.on('pointerout', () => { isRightDown = false; });
+        // right
+        btnRight = scene.add.image(200, scene.scale.height - 110, 'btnBg').setScrollFactor(0).setInteractive();
+        const rightArrow = scene.add.text(0,0,'➡️',{ fontSize:'56px' }).setOrigin(0.5).setDepth(5);
+        const rightContainer = scene.add.container(btnRight.x, btnRight.y, [btnRight,rightArrow]).setScrollFactor(0).setDepth(20);
+        rightContainer.setSize(w,h);
+        rightContainer.setInteractive(new Phaser.Geom.Rectangle(-w/2,-h/2,w,h), Phaser.Geom.Rectangle.Contains);
+        rightContainer.on('pointerdown', () => isRight = true);
+        rightContainer.on('pointerup', () => isRight = false);
+        rightContainer.on('pointerout', () => isRight = false);
 
-        btnJump = scene.add.text(w - 150, h - 130, '⏫', style).setScrollFactor(0).setInteractive();
-        btnJump.on('pointerdown', () => { isJumpDown = true; });
-        btnJump.on('pointerup', () => { isJumpDown = false; });
-        btnJump.on('pointerout', () => { isJumpDown = false; });
+        // jump (right side)
+        btnJump = scene.add.image(scene.scale.width - 110, scene.scale.height - 110, 'btnBg').setScrollFactor(0).setInteractive();
+        const jumpArrow = scene.add.text(0,0,'⏫',{ fontSize:'48px' }).setOrigin(0.5).setDepth(5);
+        const jumpContainer = scene.add.container(btnJump.x, btnJump.y, [btnJump, jumpArrow]).setScrollFactor(0).setDepth(20);
+        jumpContainer.setSize(w,h);
+        jumpContainer.setInteractive(new Phaser.Geom.Rectangle(-w/2,-h/2,w,h), Phaser.Geom.Rectangle.Contains);
+        jumpContainer.on('pointerdown', () => isJump = true);
+        jumpContainer.on('pointerup', () => isJump = false);
+        jumpContainer.on('pointerout', () => isJump = false);
+
+        // store containers for reposition on resize
+        scene.registry.set('uiLeft', leftContainer);
+        scene.registry.set('uiRight', rightContainer);
+        scene.registry.set('uiJump', jumpContainer);
     }
+
+    function positionButtons(scene) {
+        const left = scene.registry.get('uiLeft');
+        const right = scene.registry.get('uiRight');
+        const jump = scene.registry.get('uiJump');
+        if (!left || !right || !jump) return;
+        left.x = 60; left.y = scene.scale.height - 110;
+        right.x = 200; right.y = scene.scale.height - 110;
+        jump.x = scene.scale.width - 110; jump.y = scene.scale.height - 110;
+        // reposition children
+        left.list.forEach(o => o.setPosition(left.x, left.y));
+        right.list.forEach(o => o.setPosition(right.x, right.y));
+        jump.list.forEach(o => o.setPosition(jump.x, jump.y));
+    }
+
+    function hideButtons() {
+        const s = game.scene.scenes[0];
+        const left = s.registry.get('uiLeft');
+        const right = s.registry.get('uiRight');
+        const jump = s.registry.get('uiJump');
+        if (left) left.setVisible(false);
+        if (right) right.setVisible(false);
+        if (jump) jump.setVisible(false);
+    }
+
+})(); // IIFE end
 </script>
-
 </body>
 </html>
