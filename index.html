@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sana Özel Bir Oyun v7.0 (Zor + Giriş)</title>
+    <title>Sana Özel Bir Oyun v6.3</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style>
         body { 
@@ -88,8 +88,6 @@
     let finalImage;
     let finalImageContainer;
     let isGameFinished = false;
-    let isGameStarted = false; // OYUN BAŞLADI MI KONTROLÜ
-    let startContainer; // Giriş ekranı grubu
     let score = 0;
     let scoreText;
     let hearts;
@@ -108,12 +106,10 @@
 
     function preload() {
         this.load.audio('theme', 'muzik.mp3');
-        
-        this.load.image('ground', 'https://raw.githubusercontent.com/photonstorm/phaser3-examples/master/public/assets/tilemaps/tiles/super-mario.png');
-        this.load.image('block', 'https://raw.githubusercontent.com/photonstorm/phaser3-examples/master/public/assets/sprites/block.png');
+        this.load.image('ground', 'https://labs.phaser.io/assets/sprites/platform.png');
         this.load.image('sparkle', 'https://labs.phaser.io/assets/particles/blue.png');
         this.load.image('heart', 'https://labs.phaser.io/assets/sprites/heart.png');
-        this.load.image('skyBackground', 'https://labs.phaser.io/assets/skies/sky4.png'); 
+        this.load.image('skyBackground', 'https://labs.phaser.io/assets/skies/clouds.png'); 
         
         this.load.image('prens', 'prens.png');
         this.load.image('prenses', 'prenses.png');
@@ -122,7 +118,6 @@
     }
 
     function create() {
-        // Tam ekran olayını yine tutuyoruz ama müzik başlatmayı butona bağlayacağız
         this.input.once('pointerdown', () => {
             if (!this.scale.isFullscreen && this.scale.startFullscreen) {
                 this.scale.startFullscreen();
@@ -130,6 +125,7 @@
         });
 
         music = this.sound.add('theme', { loop: true, volume: 0.5 });
+        this.input.once('pointerdown', () => { if (!music.isPlaying) music.play(); });
 
         background = this.add.tileSprite(0, 0, this.scale.width, this.scale.height, 'skyBackground');
         background.setOrigin(0, 0);
@@ -141,85 +137,72 @@
         background.setScale(scale);
 
         const platforms = this.physics.add.staticGroup();
+        
+        // ZEMİNLER
+        createFloor(this, platforms, 0, 800);
+        createFloor(this, platforms, 1000, 1500);
+        createFloor(this, platforms, 1700, 2400);
+        createFloor(this, platforms, 2600, 4000);
+
         const bottomY = this.scale.height - GROUND_HEIGHT;
 
-        // --- ZORLAŞTIRILMIŞ PARKUR TASARIMI ---
-        // Artık boydan boya zemin YOK. Parça parça adalar var.
-        
-        // 1. Başlangıç (Güvenli Alan)
-        createFloor(this, platforms, 0, 600); 
+        // ENGELLER
+        createBlock(platforms, 450, bottomY - 60);
+        createBlock(platforms, 650, bottomY - 160);
 
-        // 2. İlk Atlayış (Boşluk var!)
-        createFloor(this, platforms, 800, 1200);
-
-        // 3. Merdivenler ve Boşluklar
-        createBlock(platforms, 1400, bottomY - 50);
-        createBlock(platforms, 1600, bottomY - 150);
-        
-        // 4. Uzak Ada
-        createFloor(this, platforms, 1900, 2300);
-
-        // 5. Zorlu Kısım (Hareketli Platformlar Üzerinden Geçiş)
-        // Burada zemin yok, sadece hareketli platformlar var!
-        
-        // 6. Final Yolu
-        createFloor(this, platforms, 3200, 4000); // Prensesin olduğu yer
-
-        // --- HAREKETLİ PLATFORMLAR (Sayıyı artırdık) ---
         movingPlatforms = this.physics.add.group({allowGravity: false, immovable: true});
         
-        // İlk hareketli (Basit)
-        let mp1 = movingPlatforms.create(700, bottomY - 50, 'ground').setDisplaySize(120, 32);
-        mp1.setMoveData(650, 750, 100);
+        let mp1 = movingPlatforms.create(900, bottomY - 100, 'ground').setDisplaySize(150, 32).setTint(0x8B4513);
+        mp1.setMoveData(850, 950, 100);
 
-        // İkinci hareketli (Zorlu geçiş için)
-        let mp2 = movingPlatforms.create(2600, bottomY - 100, 'ground').setDisplaySize(120, 32);
-        mp2.setMoveData(2400, 2800, 150); // Uzun mesafe gidip geliyor
+        createBlock(platforms, 1800, bottomY - 80);
+        createBlock(platforms, 2000, bottomY - 200);
+        createBlock(platforms, 2200, bottomY - 80);
 
-        // Üçüncü hareketli (Yüksekte)
-        let mp3 = movingPlatforms.create(3000, bottomY - 200, 'ground').setDisplaySize(100, 32);
-        mp3.setMoveData(2900, 3100, 120);
-
+        let mp2 = movingPlatforms.create(2500, bottomY - 50, 'ground').setDisplaySize(120, 32).setTint(0x8B4513);
+        mp2.setMoveData(2450, 2550, 150);
 
         emitter = this.add.particles('sparkle').createEmitter({
             speed: { min: -50, max: 50 }, angle: { min: 0, max: 360 }, scale: { start: 0.2, end: 0 },
             blendMode: 'ADD', on: false, lifespan: 300, gravityY: -100
         });
 
-        // --- PRENS ---
-        player = this.physics.add.sprite(100, bottomY - 50, 'prens');
-        player.setOrigin(0.5, 1); 
+        // --- DÜZELTME BURADA (PRENS) ---
+        // Prens tam olarak zeminin üzerine (bottomY) konuyor.
+        player = this.physics.add.sprite(100, bottomY, 'prens');
+        
+        player.setOrigin(0.5, 1); // Ayaklarından hizala
         player.setDisplaySize(60, 120); 
-        player.body.setSize(40, 75); 
-        player.body.setOffset(10, 15); 
+
+        // HATA GİDERİLDİ: O devasa Hitbox ayarını sildik.
+        // Artık resim neyse vücut da o. Prens havada kalmayacak.
+        
         player.setBounce(0.0); 
-        player.setCollideWorldBounds(false); // Dünyadan düşebilsin (Zorluk için)
+        player.setCollideWorldBounds(false); 
         emitter.startFollow(player);
 
-        // --- KULE ---
+        // --- KULE (Prensesin Arkasında) ---
+        // X: Prensesle aynı hizada olsun (mapWidth - 300)
+        // Y: Zeminin tam üstünde (bottomY)
+        // setOrigin(0.5, 1) -> Alt orta noktasından hizala
         let tower = this.add.image(mapWidth - 150, bottomY + 20, 'kule');
         tower.setOrigin(0.5, 1); 
         tower.setDisplaySize(350, 450);
 
         // --- PRENSES ---
         princess = this.physics.add.staticSprite(mapWidth - 300, bottomY, 'prenses');
-        princess.setOrigin(0.5, 1); 
+        princess.setOrigin(0.5, 1); // Ayaklarından hizala
         princess.setDisplaySize(70, 110);
         princess.setFlipX(true);
-        princess.body.setSize(40, 80);
-        princess.body.setOffset(10, 5);
         princess.refreshBody(); 
 
-        // --- KALPLER (Zor yerlere koyalım) ---
         hearts = this.physics.add.group();
-        // Rastgele değil, elle koyalım ki düşme riski olsun
-        createHeart(hearts, 700, bottomY - 150); // Hareketli üstü
-        createHeart(hearts, 1500, bottomY - 100); // Blok üstü
-        createHeart(hearts, 2600, bottomY - 200); // Hareketli üstü
-        createHeart(hearts, 3000, bottomY - 250); // Yüksek hareketli üstü
-        // Yolda da olsun biraz
-        for(let i=0; i<5; i++) {
-            createHeart(hearts, 3300 + (i*100), bottomY - 50);
+        for (let i = 0; i < 20; i++) {
+            let x = Phaser.Math.Between(300, mapWidth - 400);
+            let y = Phaser.Math.Between(100, bottomY - 200);
+            let heart = hearts.create(x, y, 'heart');
+            heart.setDisplaySize(35, 35); 
+            heart.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
         }
 
         this.physics.add.collider(player, platforms);
@@ -243,69 +226,27 @@
         finalImage = this.add.image(0, 0, 'finalScene');
         finalImageContainer.add(finalImage);
 
-        // --- GİRİŞ EKRANI OLUŞTURMA (En Sonda) ---
-        createStartScreen(this);
-
         this.input.addPointer(2);
         this.scale.on('resize', resize, this);
-    }
-
-    // --- GİRİŞ EKRANI FONKSİYONU ---
-    function createStartScreen(scene) {
-        startContainer = scene.add.container(0, 0).setScrollFactor(0).setDepth(9999);
-        
-        // Siyah perde
-        let overlay = scene.add.rectangle(0, 0, scene.scale.width, scene.scale.height, 0x000000, 0.85);
-        overlay.setOrigin(0, 0);
-        
-        // Başlık
-        let title = scene.add.text(scene.scale.width / 2, scene.scale.height / 2 - 50, 'PRENSESİ KURTAR', {
-            fontSize: '40px', fill: '#FFF', fontStyle: 'bold', stroke: '#000', strokeThickness: 6
-        }).setOrigin(0.5);
-
-        // Buton
-        let startBtn = scene.add.text(scene.scale.width / 2, scene.scale.height / 2 + 50, '▶ OYUNA BAŞLA', {
-            fontSize: '32px', fill: '#0f0', fontStyle: 'bold', backgroundColor: '#333', padding: {x: 20, y: 10}
-        }).setOrigin(0.5).setInteractive();
-
-        startContainer.add([overlay, title, startBtn]);
-
-        // Butona basınca
-        startBtn.on('pointerdown', () => {
-            isGameStarted = true;
-            startContainer.setVisible(false);
-            if (!music.isPlaying) music.play();
-        });
-        
-        // Resize için overlay boyutunu güncelle
-        scene.events.on('resize', (gameSize) => {
-            overlay.setSize(gameSize.width, gameSize.height);
-            title.setPosition(gameSize.width/2, gameSize.height/2 - 50);
-            startBtn.setPosition(gameSize.width/2, gameSize.height/2 + 50);
-        });
     }
 
     function createFloor(scene, group, startX, endX) {
         let width = endX - startX;
         let centerX = startX + (width / 2);
         let y = scene.scale.height; 
+        
         let floor = group.create(centerX, y, 'ground');
         floor.setOrigin(0.5, 1); 
         floor.setDisplaySize(width, GROUND_HEIGHT);
+        floor.setTint(0x32CD32); 
         floor.refreshBody();
     }
 
     function createBlock(group, x, y) {
-        let block = group.create(x, y, 'block');
-        block.setDisplaySize(64, 64);
+        let block = group.create(x, y, 'ground');
+        block.setDisplaySize(100, 32);
+        block.setTint(0x8B4513); 
         block.refreshBody();
-    }
-    
-    function createHeart(group, x, y) {
-        let heart = group.create(x, y, 'heart');
-        heart.setDisplaySize(35, 35);
-        heart.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
-        heart.body.setCircle(15);
     }
 
     function resize (gameSize) {
@@ -322,9 +263,7 @@
     }
 
     function update() {
-        // --- OYUN BAŞLAMADIYSA HAREKET ETME ---
-        if (!isGameStarted || isGameFinished) return;
-
+        if (isGameFinished) return;
         background.tilePositionX = this.cameras.main.scrollX * 0.3;
 
         movingPlatforms.children.iterate(function (platform) {
@@ -358,13 +297,9 @@
             emitter.on = false;
         }
 
-        // --- DÜŞERSE BAŞA SAR ---
         if (player.y > this.scale.height + 200) {
             this.scene.restart();
-            // Restart yapınca değişkenler sıfırlanır, tekrar start ekranı gelir.
-            // Eğer tekrar start ekranı gelmesin istiyorsan, logic değişmeli ama şimdilik güvenli olan bu.
             score = 0;
-            isGameStarted = false; 
         }
     }
 
@@ -433,3 +368,5 @@
 
 </body>
 </html>
+
+
