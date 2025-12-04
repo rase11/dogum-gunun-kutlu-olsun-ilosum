@@ -95,6 +95,8 @@
     let movingPlatforms;
     let emitter;
     let background;
+    let isGameStarted = false; // Oyunun başlayıp başlamadığını kontrol eder
+    let startContainer; // Giriş ekranı kutusu
     
     let btnLeft, btnRight, btnJump;
     let isLeftDown = false;
@@ -228,6 +230,8 @@
 
         this.input.addPointer(2);
         this.scale.on('resize', resize, this);
+        
+        createStartScreen(this);
     }
 
     function createFloor(scene, group, startX, endX) {
@@ -263,6 +267,7 @@
     }
 
     function update() {
+        if (!isGameStarted) return;
         if (isGameFinished) return;
         background.tilePositionX = this.cameras.main.scrollX * 0.3;
 
@@ -363,6 +368,60 @@
         btnJump.on('pointerdown', () => { isJumpDown = true; });
         btnJump.on('pointerup', () => { isJumpDown = false; });
         btnJump.on('pointerout', () => { isJumpDown = false; });
+    }
+
+    function createStartScreen(scene) {
+        // Tüm giriş ekranı elemanlarını tutan grup (Container)
+        startContainer = scene.add.container(0, 0).setScrollFactor(0).setDepth(9999);
+        
+        // 1. Siyah Yarı Saydam Perde
+        let overlay = scene.add.rectangle(0, 0, scene.scale.width, scene.scale.height, 0x000000, 0.85);
+        overlay.setOrigin(0, 0);
+        
+        // 2. Başlık Yazısı
+        let title = scene.add.text(scene.scale.width / 2, scene.scale.height / 2 - 50, 'PRENSESİ KURTAR', {
+            fontSize: '40px', 
+            fill: '#FFF', 
+            fontStyle: 'bold', 
+            stroke: '#000', 
+            strokeThickness: 6,
+            fontFamily: 'Arial Black'
+        }).setOrigin(0.5);
+
+        // 3. Başla Butonu
+        let startBtn = scene.add.text(scene.scale.width / 2, scene.scale.height / 2 + 50, '▶ OYUNA BAŞLA', {
+            fontSize: '32px', 
+            fill: '#0f0', 
+            fontStyle: 'bold', 
+            backgroundColor: '#333', 
+            padding: {x: 20, y: 10}
+        }).setOrigin(0.5).setInteractive(); // Tıklanabilir yap
+
+        // Elemanları gruba ekle
+        startContainer.add([overlay, title, startBtn]);
+
+        // --- BUTONA BASINCA NE OLSUN? ---
+        startBtn.on('pointerdown', () => {
+            isGameStarted = true;       // Kilidi aç
+            startContainer.setVisible(false); // Menüyü gizle
+            
+            // Müzik varsa başlat
+            if (music && !music.isPlaying) {
+                music.play();
+            }
+            
+            // Tam ekran yap (Telefonda güzel görünmesi için)
+            if (scene.scale.startFullscreen) {
+                scene.scale.startFullscreen().catch(() => {});
+            }
+        });
+        
+        // Ekran döndürülürse menüyü ortala
+        scene.scale.on('resize', (gameSize) => {
+            overlay.setSize(gameSize.width, gameSize.height);
+            title.setPosition(gameSize.width/2, gameSize.height/2 - 50);
+            startBtn.setPosition(gameSize.width/2, gameSize.height/2 + 50);
+        });
     }
 </script>
 
