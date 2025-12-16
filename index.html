@@ -3,93 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sana Özel Bir Oyun v13.7 - Şık Tasarım</title>
+    <title>Sana Özel Bir Oyun v13.8 - Premium Tasarım</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Roboto:wght@500&display=swap" rel="stylesheet">
+
     <style>
-        /* TEMEL AYARLAR */
+        /* --- TEMEL AYARLAR --- */
         body { 
             margin: 0; 
-            background-color: #1a1a1a; 
+            background-color: #111; 
             overflow: hidden; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Roboto', sans-serif; /* Varsayılan font */
             touch-action: none;
             user-select: none;
             -webkit-user-select: none;
         }
         #game-container { width: 100vw; height: 100vh; }
         
-        /* CİHAZ YÖNÜ UYARISI */
+        /* --- EKRAN DÖNDÜRME UYARISI --- */
         #orientation-warning {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #222; color: #fff; display: none;
+            background: #2c3e50; color: #ecf0f1; display: none;
             flex-direction: column; justify-content: center; align-items: center;
             z-index: 9999; text-align: center;
         }
 
-        /* --- YENİ ŞIK GAME OVER EKRANI --- */
+        /* --- PREMIUM GAME OVER EKRANI --- */
         #game-over-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.7); /* Arkadaki oyunu hafif karart */
-            backdrop-filter: blur(5px); /* Arkadaki oyunu bulanıklaştır (modern görünüm) */
+            background: rgba(18, 28, 45, 0.85); /* Koyu lacivert yarı saydam arka plan */
+            backdrop-filter: blur(8px); /* Arkadaki oyunu buzlu cam gibi gösterir */
             display: none; /* Başlangıçta gizli */
             justify-content: center; align-items: center;
             z-index: 10000; 
         }
 
+        /* Kartın Kendisi */
         .modal-card {
-            background: linear-gradient(145deg, #ffffff, #f0f0f0);
-            padding: 30px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            background: linear-gradient(180deg, #ffffff 0%, #f3f4f6 100%);
+            padding: 40px 30px;
+            border-radius: 25px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 0 6px rgba(255, 255, 255, 0.1);
             text-align: center;
-            max-width: 400px;
-            width: 80%;
-            border: 4px solid #FFD700; /* Altın sarısı çerçeve */
-            animation: popIn 0.3s ease-out;
+            max-width: 380px;
+            width: 85%;
+            position: relative;
+            border-top: 6px solid #FFD700; /* Üstte altın sarısı çizgi */
+            animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        @keyframes popIn {
-            0% { transform: scale(0.8); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
+        /* Kartın Giriş Animasyonu */
+        @keyframes bounceIn {
+            0% { opacity: 0; transform: scale(0.3); }
+            50% { opacity: 1; transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); }
         }
 
+        /* Başlık Yazısı */
         .modal-title {
-            color: #d32f2f;
-            font-size: 28px;
-            font-weight: bold;
-            margin: 0 0 10px 0;
-            font-family: 'Arial Black', sans-serif;
-            text-transform: uppercase;
+            color: #2c3e50;
+            font-family: 'Fredoka One', cursive; /* Özel font */
+            font-size: 32px;
+            margin: 0;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+            letter-spacing: 1px;
         }
 
+        /* Alt Yazı */
         .modal-text {
-            color: #555;
+            color: #7f8c8d;
             font-size: 16px;
-            margin-bottom: 25px;
+            margin-top: 10px;
+            margin-bottom: 30px;
+            font-weight: 500;
         }
 
+        /* Buton Tasarımı */
         .restart-btn {
-            background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%);
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); /* Altın-Turuncu gradyan */
             border: none;
-            color: white;
-            padding: 15px 30px;
-            font-size: 18px;
-            font-weight: bold;
+            color: #fff;
+            padding: 16px 40px;
+            font-size: 20px;
+            font-family: 'Fredoka One', cursive;
             border-radius: 50px;
             cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0, 198, 255, 0.4);
-            transition: transform 0.1s;
-            outline: none;
             width: 100%;
-            font-family: 'Arial Black', sans-serif;
+            box-shadow: 0 10px 20px -5px rgba(255, 165, 0, 0.5); /* Renkli gölge */
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+            -webkit-tap-highlight-color: transparent;
         }
 
+        /* Butona basılınca */
         .restart-btn:active {
             transform: scale(0.95);
-            background: linear-gradient(to bottom, #00f2fe 0%, #4facfe 100%);
+            box-shadow: 0 5px 10px -5px rgba(255, 165, 0, 0.5);
         }
 
+        /* Dikey Ekran Kontrolü */
         @media screen and (orientation: portrait) {
             #orientation-warning { display: flex; }
             #game-container { display: none; }
@@ -100,16 +116,20 @@
 <body>
 
 <div id="orientation-warning">
-    <div style="font-size: 50px;">📱↔️</div>
-    <h2>Lütfen Telefonu Yan Çevir</h2>
-    <p>Oyun sadece yatay modda oynanabilir.</p>
+    <div style="font-size: 60px; margin-bottom: 20px;">📱↔️</div>
+    <h2 style="font-family: 'Fredoka One', cursive;">Lütfen Telefonu Çevir</h2>
+    <p>Prenses seni yatay modda bekliyor!</p>
 </div>
 
 <div id="game-over-overlay">
     <div class="modal-card">
+        <div style="font-size: 50px; margin-bottom: 10px;">👑💔</div> 
         <div class="modal-title">OYUN BİTTİ</div>
-        <p class="modal-text">Prenses seni bekliyor, pes etme!</p>
-        <button class="restart-btn" ontouchend="restartGameHTML()" onclick="restartGameHTML()">TEKRAR DENE ↻</button>
+        <p class="modal-text">Tekrar dene, Prensesi kurtarmak için bir şansın daha var!</p>
+        
+        <button class="restart-btn" ontouchend="restartGameHTML()" onclick="restartGameHTML()">
+            TEKRAR DENE ↻
+        </button>
     </div>
 </div>
 
@@ -141,10 +161,7 @@
 
     // --- HTML ÜZERİNDEN YENİDEN BAŞLATMA ---
     function restartGameHTML() {
-        // Menüyü gizle
         document.getElementById('game-over-overlay').style.display = 'none';
-        
-        // Oyunu yeniden başlat
         const gameScene = game.scene.scenes[0];
         if (gameScene) {
             gameScene.scene.restart({ isRetry: true });
@@ -179,7 +196,7 @@
         this.load.image('background', 'background.png'); 
         this.load.image('zemin', 'zemin.jpg'); 
         
-        // 6'lı Spritesheet (280x786)
+        // 6'lı Spritesheet (280x786 -> 140x262)
         this.load.spritesheet('prens', 'prens_6li.png', { 
             frameWidth: 140, 
             frameHeight: 262 
@@ -234,6 +251,7 @@
         const platforms = this.physics.add.staticGroup();
         const bottomY = this.scale.height - GROUND_HEIGHT;
         
+        // --- HARİTA TASARIMI ---
         createFloor(this, platforms, 0, 800);
         createFloor(this, platforms, 1000, 1500);
         createFloor(this, platforms, 1700, 2400);
@@ -300,6 +318,7 @@
         createEnemy(enemies, 10600, bottomY - 50, 300); 
         createEnemy(enemies, 11300, bottomY - 50, 100); 
 
+        // PLAYER
         player = this.physics.add.sprite(100, bottomY - 200, 'prens');
         player.setOrigin(0.5, 1).setDisplaySize(75, 136).setBounce(0.0).setCollideWorldBounds(false); 
         
@@ -411,7 +430,7 @@
         if (music) music.stop();
         try { sfxGameOver.play(); } catch(e){}
         
-        // Şık Pop-up'ı göster
+        // POP-UP GÖSTER
         document.getElementById('game-over-overlay').style.display = 'flex';
     }
 
